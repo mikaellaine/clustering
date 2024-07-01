@@ -5,6 +5,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <map>
 
 #include "clustering.h"
 using namespace std;
@@ -93,7 +94,6 @@ void Clustering::setNeighbors( SP<Node> A, SP<Node> B ){
   std::lock_guard<std::mutex> lock(mMutexNodeSet);
   A->addNeighbor(B);
   B->addNeighbor(A);
-
 }
 
 /**
@@ -116,19 +116,24 @@ void Clustering::calculateDistances( float aEpsilon, int aStart, int aEnd ){
     }
   }
 }
-
+/**
+ *
+ *@param aEpsilon - max dist of points in initial cluster
+ *@param aMinPts - min number of points in initial cluster
+ */
 void Clustering::cluster_DBSCAN( float aEpsilon, int aMinPts ){
   int n = mData->size();
   int pert=n/mCores;
   int st,en;
   // Collect neighborhoods for all nodes. This takes a long time
-  vector<std::future<void>> mTasks;
+  vector<std::future<void>> tasks;
   for(int i = 0; i < n; i+=pert){
     st=i;
     en=min(n,i+pert);
-    mTasks.push_back(std::async(std::launch::async, &Clustering::calculateDistances, this, aEpsilon, st, en));
+    tasks.push_back(std::async(std::launch::async, &Clustering::calculateDistances, this, aEpsilon, st, en));
   }
-  for(unsigned int i = 0; i < mTasks.size(); ++i){mTasks[i].wait();}
+  for(unsigned int i = 0; i < tasks.size(); ++i){tasks[i].wait();}
+  tasks.clear();
   int cid=0;
   // Proceed with clustering
   for( int i = 0; i < n; ++i ){
@@ -150,8 +155,36 @@ void Clustering::cluster_DBSCAN( float aEpsilon, int aMinPts ){
   }
 }
 
-void Clustering::cluster_Kmedian(){
-  
+/**
+ *
+ *
+ *@param aEpsilon - distance for initial clustering
+ *@param aMinPts - minimum number of nodes in an initial cluster
+ */
+void Clustering::cluster_Kmedian(float aEpsilon, int aMinPts, int aDesiredClustersCount){
+  map<int, SP<Node>> neighbors;// nodes with the biggest neighborhood
+  vector<SP<Node>> cluster_centroids;
+  int st, en, n=mData->size(), pert=n/mCores;
+  vector<std::future<void>> tasks;
+  for(int i = 0; i < n; i+=pert){
+    st=i;
+    en=min(n,i+pert);
+    tasks.push_back(std::async(std::launch::async, &Clustering::calculateDistances, this, aEpsilon, st, en));
+  }
+  for(unsigned int i = 0; i < tasks.size(); ++i){tasks[i].wait();}
+  tasks.clear();
+  for(size_t i = 0; i < mData->size(); ++i){
+    mData->get(i)->label=0;
+    if(mData->get(i)->nSize() > aMinPts ){
+      neighbors[mData->get(i)->nSize()] = mData->get(i);
+    }
+  }
+  int cnt=0;
+  for(auto ns=neighbors.rbegin(); ns != neighbors.rend(); ++ns){
+    if(cnt < aDesiredClustersCount){
+      cluster_centroids.push_back( ns->second );
+    }
+  }
 }
 
 int main(int ac, char **aa){

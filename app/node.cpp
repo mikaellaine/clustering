@@ -9,20 +9,26 @@ void Node::addNeighbor(SP<Node> aNeighbor){
   mNeighbors.push_back(aNeighbor);
 }
 
+NodeFloatvec::NodeFloatvec(vector<float> aVals){
+  mVal=aVals;
+}
+
 float NodeFloatvec::dist(SP<Node> aOther){
   float sum=0.0f;
   float d=0.0f;
-  SP<NodeFloatvec> o=dynamic_cast<NodeFloatvec>(aOther);
+  SP<NodeFloatvec> o=std::dynamic_pointer_cast<NodeFloatvec>(aOther);
   for(int i = 0; i < mDim; ++i){
-    d=mVal[i]-o->mVal[i];
+    d=mVal[i] - o->mVal[i];
     sum += d*d;
   }
   return sqrt(sum);
 }
 
-void NodeFloatvec::read(string aFilePath){
-  ifstream infile(aFilePath); 
-    if (!infile.is_open()) { cerr << "\nCan't open file "<< aFilePath; return; } 
+SP<Dataset> NodeFloatvec::read(string aFilePath){
+  SP<Dataset> set;
+  ifstream infile(aFilePath);
+    if (!infile.is_open()) { cerr << "\nCan't open file "<< aFilePath; return set; }
+    SP<NodeFloatvec> node;
     string line;
     int offs=0;
     int newoffs=0;
@@ -38,10 +44,12 @@ void NodeFloatvec::read(string aFilePath){
         cout << line << endl; // Print the current line
         offs=newoffs;
       }
+      node=MS<NodeFloatvec>(vals);
       // One line complete
       if(mDim == -1){mDim=vals.size();}
-      mVal.push_back(vals);
+      set->add(dynamic_pointer_cast<Node>(node));
     }
     cout << "Read " << vals.size() << " tensors" << endl;
-    infile.close(); 
+    infile.close();
+    return set;
 }

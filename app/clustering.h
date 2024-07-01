@@ -19,7 +19,7 @@ class Clustering{
   // used by DBSCAN clustering to set initial neighborhoods
   void calculateDistances( float aEpsilon, int aStart, int aEnd );
   void cluster_DBSCAN(float aEpsilon, int aMinPts);
-  void cluster_Kmedian();
+  void cluster_Kmedian(float aEpsilon, int aMinPts, int aDesiredClustersCount);
 };
 #endif
 

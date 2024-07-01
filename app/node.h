@@ -3,6 +3,7 @@
 #include "defines.h"
 #include <vector>
 using namespace std;
+class Dataset;
 class Node{
 protected:
   
@@ -11,15 +12,17 @@ protected:
   int label=0;// -1 = noise
   virtual float dist(SP<Node> aOther)=0;
   void addNeighbor(SP<Node> aNeighbor);
+  int nSize(){return mNeighbors.size(); }
 };
 
 class NodeFloatvec{
 protected:
-  vector<vector<float>> mVal;
+  vector<float> mVal;
   int mDim;// dimension of vectors
 public:
+  NodeFloatvec(vector<float> aVals);
   virtual float dist(SP<Node> aOther);
-  virtual void read(string aFilePath);
+  virtual SP<Dataset> read(string aFilePath);
 };
 
 class Dataset{
