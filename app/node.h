@@ -11,13 +11,21 @@ protected:
   int label=0;// -1 = noise
   virtual float dist(SP<Node> aOther)=0;
   void addNeighbor(SP<Node> aNeighbor);
-  
+};
+
+class NodeFloatvec{
+protected:
+  vector<vector<float>> mVal;
+  int mDim;// dimension of vectors
+public:
+  virtual float dist(SP<Node> aOther);
+  virtual void read(string aFilePath);
 };
 
 class Dataset{
 public:
   vector<SP<Node>> mNodes;
-  int size(){ return mNodes.size; }
+  size_t size(){ return mNodes.size(); }
   void add(SP<Node> aNode){ mNodes.push_back(aNode); }
   SP<Node> get(int aIndex){ return mNodes[aIndex]; }
 };
