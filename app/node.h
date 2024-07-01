@@ -6,7 +6,6 @@ using namespace std;
 class Dataset;
 class Node{
 protected:
-  
  public:
   vector<SP<Node>> mNeighbors;
   int label=0;// -1 = noise
@@ -15,18 +14,18 @@ protected:
   int nSize(){return mNeighbors.size(); }
 };
 
-class NodeFloatvec{
+class NodeFloatvec : public Node{
 protected:
   vector<float> mVal;
-  int mDim;// dimension of vectors
 public:
   NodeFloatvec(vector<float> aVals);
   virtual float dist(SP<Node> aOther);
-  virtual SP<Dataset> read(string aFilePath);
+  static SP<Dataset> read(string aFilePath);
 };
 
 class Dataset{
 public:
+  int mDim;//how many elements per tensor
   vector<SP<Node>> mNodes;
   size_t size(){ return mNodes.size(); }
   void add(SP<Node> aNode){ mNodes.push_back(aNode); }

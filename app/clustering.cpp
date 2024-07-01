@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <limits>
 #include <cmath>
@@ -8,6 +9,7 @@
 #include <map>
 
 #include "clustering.h"
+#include "util.h"
 using namespace std;
 
 Clustering::Clustering(){
@@ -20,9 +22,11 @@ void Clustering::setData(SP<Dataset> aData){
 }
 
 // Create histogram of distances
-void Clustering::analyseDistances(vector<SP<Node>> aNodes, int aBuckets, bool aPrint){
+void Clustering::analyseDistances(int aBuckets, bool aPrint){
+  if(!mData){return;}
   int sampleSize;
-  int allCount = aNodes.size();
+  int x;
+  int allCount = mData->size();
   vector<SP<Node>> sample;
   vector<float> dists;
   double distsum=0.0;
@@ -34,10 +38,13 @@ void Clustering::analyseDistances(vector<SP<Node>> aNodes, int aBuckets, bool aP
   if( allCount > 1000000 )   { sampleSize=10000; }
   else if(allCount > 100000) { sampleSize=allCount / 100; }
   else                       { sampleSize=allCount / 10; }
+  int sinc=allCount/sampleSize-1;
+  int si=0;
   for(int i = 0; i < sampleSize; ++i){ // Populate sample vector
-    int si = rand()%allCount;
-    sample.push_back(aNodes[si]);
+    si += rand()%sinc;
+    sample.push_back(mData->get(si));
   }
+  printf("\ncalculate dists for all %d (%zu from %zu)", sampleSize, sample.size(), mData->size());ff;
   // Calculate distances
   distsum=0.0; distcnt=0;
   for(int i = 0; i < sampleSize; ++i){
@@ -48,45 +55,46 @@ void Clustering::analyseDistances(vector<SP<Node>> aNodes, int aBuckets, bool aP
     }
   }
   avg_dist=(float)(distsum / distcnt);
+
   // Calculate std dev
   distsum=0.0; distcnt=0;
   float cdiff;
+  int maxcnt=0;
+  float maxdist=0;
+  float mindist=std::numeric_limits<float>::max();  
   for(int i = 0; i < sampleSize; ++i){
-    cdiff = pow(avg_dist - dists[i], 2.0);
+    d=dists[i];
+    cdiff = pow(avg_dist - d, 2.0);
     distsum += cdiff; ++distcnt;
+    if(d < mindist){mindist=d;}
+    if(d > maxdist){maxdist=d;}
   }
   std_dev=(float)(distsum / distcnt);
+  printf("\navg_dist: %g std_dev: %g", avg_dist, std_dev);ff;
   std::sort(dists.begin(), dists.end());
-  // Make histogram span from avg_dist +- std_dev*3
-  mDistHistogram.clear();
-  for(int i = 0; i < aBuckets; ++i){ mDistHistogram.push_back(0.0f); }
-  
-  float bucket_increment = std_dev * 6 / (float)aBuckets;
-  unsigned int bucketi=0;
-  int cnt = 0;
-  float maxdist=0;
-  float mindist=std::numeric_limits<float>::min();
-
+  mDistHistogram.clear(); for(int i = 0; i < aBuckets; ++i){ mDistHistogram.push_back(0); }
+  float bucket_inc = maxdist / aBuckets;
   for(unsigned int i = 0; i < dists.size(); ++i ){
-    if(dists[i] < bucket_increment*(bucketi + 1)){
-      mDistHistogram[bucketi] += dists[i]; ++cnt;
-    }else{
-      mDistHistogram[bucketi] /= cnt; 
-      if( mDistHistogram[bucketi] > maxdist ){ maxdist = mDistHistogram[bucketi]; }
-      if( mDistHistogram[bucketi] < mindist ){ mindist = mDistHistogram[bucketi]; }
-      ++bucketi;
+    d=dists[i];
+    for(int bi=1; bi <= aBuckets; ++bi){
+      if( d < bi * bucket_inc ){ x = ++mDistHistogram[bi-1]; if( x > maxcnt ){ maxcnt = x; } break; }
     }
-    if( bucketi >= mDistHistogram.size() ){ break; }
   }
+  
   // Now print the histogram, if requested
   if( aPrint ){
     float scale=10;
-    float distinc=abs((maxdist-mindist)/scale);
-    for( int d = maxdist; d >= mindist; d -= distinc ){
+    int perscale=maxcnt / scale; perscale=max(1,perscale);
+    for( int d = scale; d >= 0; --d ){
+      int limit=d*perscale;
+      printf("\n");
       for( int i = 0; i < aBuckets; ++i ){
-        if(mDistHistogram[i] >= d){printf("#");}else{printf(" ");}
+        if(mDistHistogram[i] >= limit) {printf("#");}
+        else                           {printf(" ");}
       }
     }
+    printf("\n%g .. %g .. %g\n", mindist, avg_dist, maxdist);
+    ff;
   }
 }
 
@@ -102,7 +110,6 @@ void Clustering::setNeighbors( SP<Node> A, SP<Node> B ){
  *@param aEnd
  */
 void Clustering::calculateDistances( float aEpsilon, int aStart, int aEnd ){
-  printf("Clustering::calculateDistances(%d.. %d)", aStart, aEnd);fflush(stdout);
   float cdist=0;
   SP<Node> cnode, onode;
   for(int i = aStart; i < aEnd; ++i){
@@ -121,11 +128,12 @@ void Clustering::calculateDistances( float aEpsilon, int aStart, int aEnd ){
  *@param aEpsilon - max dist of points in initial cluster
  *@param aMinPts - min number of points in initial cluster
  */
-void Clustering::cluster_DBSCAN( float aEpsilon, int aMinPts ){
+void Clustering::cluster_DBSCAN( float aEpsilon, size_t aMinPts ){
   int n = mData->size();
   int pert=n/mCores;
   int st,en;
   // Collect neighborhoods for all nodes. This takes a long time
+  printf("\nClustering::cluster_DBSCAN calculating all distances using %d threads. ", mCores);
   vector<std::future<void>> tasks;
   for(int i = 0; i < n; i+=pert){
     st=i;
@@ -152,6 +160,10 @@ void Clustering::cluster_DBSCAN( float aEpsilon, int aMinPts ){
         nei->mNeighbors.clear();
       }
     }
+  }
+  printf("\nLABELS:");
+  for(int i = 0; i < mData->size(); ++i){
+    printf("%d", mData->get(i)->label);
   }
 }
 
@@ -189,4 +201,10 @@ void Clustering::cluster_Kmedian(float aEpsilon, int aMinPts, int aDesiredCluste
 
 int main(int ac, char **aa){
   cout<<"main";
+  SP<Dataset> set = NodeFloatvec::read("/data/misc/clustering/test_moons.csv");
+  Clustering c;
+  c.setData(set);
+  printf("\nanalyseDistances");fflush(stdout);
+  c.analyseDistances(100, true);
+  c.cluster_DBSCAN(0.3, 5 );
 }

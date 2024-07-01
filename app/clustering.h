@@ -7,7 +7,7 @@
 using namespace std;
 class Clustering{
  protected:
-  vector<float> mDistHistogram;
+  vector<int> mDistHistogram;
   SP<Dataset> mData;
   std::mutex mMutexNodeSet;//for protecting setting values in nodes
   int mCores;
@@ -15,10 +15,10 @@ class Clustering{
   Clustering();
   void setNeighbors( SP<Node> A, SP<Node> B );
   void setData(SP<Dataset> aData);
-  void analyseDistances(vector<SP<Node>> aNodes, int aBuckets, bool aPrint=true);
+  void analyseDistances(int aBuckets, bool aPrint=true);
   // used by DBSCAN clustering to set initial neighborhoods
   void calculateDistances( float aEpsilon, int aStart, int aEnd );
-  void cluster_DBSCAN(float aEpsilon, int aMinPts);
+  void cluster_DBSCAN(float aEpsilon, size_t aMinPts);
   void cluster_Kmedian(float aEpsilon, int aMinPts, int aDesiredClustersCount);
 };
 #endif
