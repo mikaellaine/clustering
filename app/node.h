@@ -25,7 +25,7 @@ public:
 class Dataset{
 public:
   vector<SP<Node>> mNodes;
-  int size(){ return mNodes.size; }
+  size_t size(){ return mNodes.size(); }
   void add(SP<Node> aNode){ mNodes.push_back(aNode); }
   SP<Node> get(int aIndex){ return mNodes[aIndex]; }
 };
