@@ -11,7 +11,15 @@ protected:
   int label=0;// -1 = noise
   virtual float dist(SP<Node> aOther)=0;
   void addNeighbor(SP<Node> aNeighbor);
-  
+};
+
+class NodeFloatvec{
+protected:
+  vector<vector<float>> mVal;
+  int mDim;// dimension of vectors
+public:
+  virtual float dist(SP<Node> aOther);
+  virtual void read(string aFilePath);
 };
 
 class Dataset{
