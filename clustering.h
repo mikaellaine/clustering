@@ -16,8 +16,10 @@ class Clustering{
   void setNeighbors( SP<Node> A, SP<Node> B );
   void setData(SP<Dataset> aData);
   void analyseDistances(vector<SP<Node>> aNodes, int aBuckets, bool aPrint=true);
+  // used by DBSCAN clustering to set initial neighborhoods
   void calculateDistances( float aEpsilon, int aStart, int aEnd );
   void cluster_DBSCAN(float aEpsilon, int aMinPts);
+  void cluster_Kmedian();
 };
 #endif
 

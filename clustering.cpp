@@ -150,6 +150,10 @@ void Clustering::cluster_DBSCAN( float aEpsilon, int aMinPts ){
   }
 }
 
+void Clustering::cluster_Kmedian(){
+  
+}
+
 int main(int ac, char **aa){
   cout<<"main";
 }
