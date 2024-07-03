@@ -7,11 +7,13 @@ class Dataset;
 class Node{
 protected:
  public:
-  vector<SP<Node>> mNeighbors;
+  vector<SP<Node>> near;
   int label=0;// -1 = noise
   virtual float dist(SP<Node> aOther)=0;
   void addNeighbor(SP<Node> aNeighbor);
-  int nSize(){return mNeighbors.size(); }
+  int nSize(){return near.size(); }
+  virtual float x(){return 0.0f;}
+  virtual float y(){return 0.0f;}
 };
 
 class NodeFloatvec : public Node{
@@ -21,6 +23,8 @@ public:
   NodeFloatvec(vector<float> aVals);
   virtual float dist(SP<Node> aOther);
   static SP<Dataset> read(string aFilePath);
+  float x(){return mVal[0];}
+  float y(){return mVal[1];}
 };
 
 class Dataset{

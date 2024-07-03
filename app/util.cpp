@@ -1,5 +1,5 @@
 #include "util.h"
-string Util::getNextStr(string& aInput, string aDelim, int aOffs, int& aEnd){
+string Util::getNextStr(string& aInput, string aDelim, size_t aOffs, int& aEnd){
   aEnd = aInput.find(aDelim, aOffs);
   if(aEnd != -1){ return aInput.substr(aOffs, (aEnd-aOffs)); }
   else if(aOffs < aInput.length()){ return aInput.substr(aOffs);}
@@ -19,4 +19,11 @@ string Util::printString(vector<string> vals, int aLen){
     for(int s=0; s < inc; ++s){ res += " "; }
   }
   return res;
+}
+string Util::paddString(string aVal, int aLen){
+  while(aVal.length() < (unsigned int)aLen){
+    aVal=" "+aVal;
+  }
+  aVal=aVal.substr(0,aLen);
+  return aVal;
 }

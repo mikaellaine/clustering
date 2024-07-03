@@ -6,7 +6,8 @@
 using namespace std;
 class Util{
  public:
-  static string getNextStr(string& aInput, string aDelim, int aOffs, int& aEnd);
+  static string getNextStr(string& aInput, string aDelim, size_t aOffs, int& aEnd);
   static string printString(vector<string> vals, int aLen);
+  static string paddString(string aVal, int aLen);
 };
 #endif

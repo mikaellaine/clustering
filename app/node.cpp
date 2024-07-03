@@ -6,7 +6,7 @@
 #include <string>
 
 void Node::addNeighbor(SP<Node> aNeighbor){
-  mNeighbors.push_back(aNeighbor);
+  near.push_back(aNeighbor);
 }
 
 NodeFloatvec::NodeFloatvec(vector<float> aVals){

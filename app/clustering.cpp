@@ -10,6 +10,7 @@
 
 #include "clustering.h"
 #include "util.h"
+#include "plot.h"
 using namespace std;
 
 Clustering::Clustering(){
@@ -19,10 +20,14 @@ Clustering::Clustering(){
 
 void Clustering::setData(SP<Dataset> aData){
   mData=aData;
+  mXmin=10000000;
+  mXmax=-1000000;
+  mYmin=10000000;
+  mYmax=-1000000;
 }
 
 // Create histogram of distances
-void Clustering::analyseDistances(int aBuckets, bool aPrint){
+void Clustering::analyseDistances(int aBuckets, bool aPrint, int aPrintRange){
   if(!mData){return;}
   int sampleSize;
   int x;
@@ -83,7 +88,7 @@ void Clustering::analyseDistances(int aBuckets, bool aPrint){
   
   // Now print the histogram, if requested
   if( aPrint ){
-    float scale=10;
+    float scale=aPrintRange;
     int perscale=maxcnt / scale; perscale=max(1,perscale);
     for( int d = scale; d >= 0; --d ){
       int limit=d*perscale;
@@ -100,8 +105,14 @@ void Clustering::analyseDistances(int aBuckets, bool aPrint){
 
 void Clustering::setNeighbors( SP<Node> A, SP<Node> B ){
   std::lock_guard<std::mutex> lock(mMutexNodeSet);
-  A->addNeighbor(B);
-  B->addNeighbor(A);
+  if(A.get() != B.get()){
+    A->addNeighbor(B);
+    B->addNeighbor(A);
+  }
+    if(A->x() < mXmin){mXmin=A->x();}
+    if(A->x() > mXmax){mXmax=A->x();}
+    if(A->y() < mYmin){mYmin=A->y();}
+    if(A->y() > mYmax){mYmax=A->y();}
 }
 
 /**
@@ -123,47 +134,50 @@ void Clustering::calculateDistances( float aEpsilon, int aStart, int aEnd ){
     }
   }
 }
+// Add neighbors of aNear, and recursively their neighbors to 'aNode'
+void Clustering::cluster_DBSCAN_add_near(SP<Node> aNode, SP<Node> aNear){
+  int len=aNear->near.size();
+  int lbl=aNode->label;
+  SP<Node> nei;
+  printf("cluster_add_near %d", lbl);ff;
+  for( size_t ni = len-1; ni >= 0; --ni ){
+    nei=aNear->near[ni];
+    if( nei->label > 0 || nei.get() == aNode.get() ){ continue; }
+    nei->label = lbl;
+    //aNode->near.push_back(nei);
+    //aNear->near.erase(aNear->near.begin() + ni);
+    cluster_DBSCAN_add_near(aNode, nei);
+  }
+  printf("\ncluster_add_near <--");ff;
+}
 /**
  *
  *@param aEpsilon - max dist of points in initial cluster
  *@param aMinPts - min number of points in initial cluster
  */
 void Clustering::cluster_DBSCAN( float aEpsilon, size_t aMinPts ){
-  int n = mData->size();
-  int pert=n/mCores;
+  int len = mData->size();
+  int pert=len/mCores;
   int st,en;
   // Collect neighborhoods for all nodes. This takes a long time
-  printf("\nClustering::cluster_DBSCAN calculating all distances using %d threads. ", mCores);
+  printf("\nClustering::cluster_DBSCAN calculating all distances using %d threads\n", mCores);
   vector<std::future<void>> tasks;
-  for(int i = 0; i < n; i+=pert){
+  for(int i = 0; i < len; i+=pert){
     st=i;
-    en=min(n,i+pert);
+    en=min(len,i+pert);
     tasks.push_back(std::async(std::launch::async, &Clustering::calculateDistances, this, aEpsilon, st, en));
   }
-  for(unsigned int i = 0; i < tasks.size(); ++i){tasks[i].wait();}
+  for(unsigned int i = 0; i < tasks.size(); ++i){tasks[i].wait(); printf("."); ff; }
   tasks.clear();
   int cid=0;
-  // Proceed with clustering
-  for( int i = 0; i < n; ++i ){
+  printf("\nClustering::cluster_DBSCAN cluster");ff;
+  for( int i = 0; i < len; ++i ){
     SP<Node> node=mData->get(i);
-    if(node->label != 0){continue;}
-    if( node->mNeighbors.size() < aMinPts ){ node->label=-1; continue; }
-    ++cid;
-    node->label=cid;
-    for( auto nei : node->mNeighbors ){
-      if( nei->label == -1 ){ nei->label = cid; }
-      if( nei->label != 0 ){ continue; }
-      nei->label = cid;
-      if( nei->mNeighbors.size() > aMinPts ){
-        node->mNeighbors.insert(node->mNeighbors.end(), nei->mNeighbors.begin(), nei->mNeighbors.end());
-        // we don't need nei's neighbors anymore
-        nei->mNeighbors.clear();
-      }
+    if( node->label > 0){ continue; }
+    if( node->near.size() > aMinPts ){ 
+      node->label = ++cid;
+      cluster_DBSCAN_add_near(node, node);
     }
-  }
-  printf("\nLABELS:");
-  for(int i = 0; i < mData->size(); ++i){
-    printf("%d", mData->get(i)->label);
   }
 }
 
@@ -174,9 +188,10 @@ void Clustering::cluster_DBSCAN( float aEpsilon, size_t aMinPts ){
  *@param aMinPts - minimum number of nodes in an initial cluster
  */
 void Clustering::cluster_Kmedian(float aEpsilon, int aMinPts, int aDesiredClustersCount){
+  int len=mData->size();
   map<int, SP<Node>> neighbors;// nodes with the biggest neighborhood
   vector<SP<Node>> cluster_centroids;
-  int st, en, n=mData->size(), pert=n/mCores;
+  int st, en, n=mData->size(), pert=len/mCores;
   vector<std::future<void>> tasks;
   for(int i = 0; i < n; i+=pert){
     st=i;
@@ -198,13 +213,6 @@ void Clustering::cluster_Kmedian(float aEpsilon, int aMinPts, int aDesiredCluste
     }
   }
 }
-
-int main(int ac, char **aa){
-  cout<<"main";
-  SP<Dataset> set = NodeFloatvec::read("/data/misc/clustering/test_moons.csv");
-  Clustering c;
-  c.setData(set);
-  printf("\nanalyseDistances");fflush(stdout);
-  c.analyseDistances(100, true);
-  c.cluster_DBSCAN(0.3, 5 );
+void Clustering::plot(){
+  Plot::plot2d(mData->mNodes, 20, mXmin, mXmax, mYmin, mYmax);
 }
